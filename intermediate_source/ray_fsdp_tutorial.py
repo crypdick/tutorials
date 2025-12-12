@@ -30,17 +30,6 @@ using FSDP1’s ``FullyShardedDataParallel``, consider migrating to FSDP2
 for improved performance and features such as lower memory usage and
 ``DTensor`` integration.
 
-   **Anyscale Specific Configuration**
-
-   Anyscale Specific Configuration Note: This tutorial is optimized for
-   the Anyscale platform. When running on open source Ray, additional
-   configuration is required. For example, you would need to manually:
-   Configure your Ray Cluster: Set up your multi-node environment and
-   manage resource allocation without Anyscale’s automation. Manage
-   Dependencies: Manually install and manage dependencies on each node.
-   Set Up Storage: Configure your own distributed or shared storage
-   system for model checkpointing.
-
 Example overview
 ----------------
 
@@ -244,7 +233,7 @@ def train_func(config):
     # Export memory profiling results to cluster storage
     run_name = ray.train.get_context().get_experiment_name()
     prof.export_memory_timeline(
-        f"/mnt/cluster_storage/{run_name}/rank{world_rank}_memory_profile.html"
+        f"/tmp/ray_results/{run_name}/rank{world_rank}_memory_profile.html"
     )
 
     # Save the final model for inference
@@ -254,12 +243,10 @@ def train_func(config):
 # Storage Configuration
 # ~~~~~~~~~~~~~~~~~~~~~
 #
-# This demo uses cluster storage to allow for quick iteration and
+# This demo uses local storage to allow for quick iteration and
 # development, but this may not be suitable in production environments or
-# at high scale. In those cases, you should use object storage instead.
-# For more information about how to select your storage type, see the
-# `Anyscale storage configuration
-# docs <https://docs.anyscale.com/configuration/storage>`__.
+# at high scale. In those cases, you should use object storage (S3, GCS,
+# etc.) or a shared filesystem (NFS).
 #
 # 3. Model sharding with FSDP2
 # ----------------------------
@@ -677,7 +664,7 @@ experiment_name=f"fsdp_mnist_{uuid.uuid4().hex[:8]}"
 # Configure run settings and storage
 run_config = ray.train.RunConfig(
     # Persistent storage path accessible across all worker nodes
-    storage_path="/mnt/cluster_storage/",
+    storage_path="/tmp/ray_results",
     # Unique experiment name (use consistent name to resume from checkpoints)
     name=experiment_name,
     # Fault tolerance configuration
@@ -707,9 +694,8 @@ print("Training completed successfully!")
 # Memory Profiler is configured within the training function.
 #
 # In this demo, the profiler is configured to generate a profiling file
-# for each worker accessible from cluster storage under the Anyscale Files
-# tab. To inspect a worker’s memory profile, download the corresponding
-# HTML file and open it in your browser. The profiler configuration and
+# for each worker. To inspect a worker’s memory profile, open the
+# corresponding HTML file in your browser. The profiler configuration and
 # export path can be customized within the training function. For more
 # details on PyTorch’s memory profiler, see the `PyTorch
 # blog <https://pytorch.org/blog/understanding-gpu-memory-1/>`__.
@@ -722,12 +708,12 @@ print("Training completed successfully!")
 # Post training directory view
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-# The Anyscale platform saves the checkpoint shards, full model, and
-# memory profiling reports in cluster storage with the following layout:
+# Ray Train saves the checkpoint shards, full model, and memory profiling
+# reports in the configured storage path with the following layout:
 #
 # .. code-block:: text
 #
-#    /mnt/cluster_storage/fsdp_mnist_1/
+#    /tmp/ray_results/fsdp_mnist_1/
 #    ├── checkpoint_1/
 #    │ ├── __0_0.distcp                  # Shard file for rank 0
 #    │ └── __1_0.distcp                  # Shard file for rank 1
@@ -750,8 +736,8 @@ print("Training completed successfully!")
 # standard PyTorch inference.
 
 # Update this path to match your trained model location
-# The path follows the pattern: /mnt/cluster_storage/{experiment_name}/full_model/full-model.pt
-PATH_TO_FULL_MODEL = f"/mnt/cluster_storage/{experiment_name}/full_model/full-model.pt"
+# The path follows the pattern: /tmp/ray_results/{experiment_name}/full_model/full-model.pt
+PATH_TO_FULL_MODEL = f"/tmp/ray_results/{experiment_name}/full_model/full-model.pt"
 
 # Initialize the same model architecture for inference
 model = init_model()
