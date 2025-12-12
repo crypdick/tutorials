@@ -2,8 +2,6 @@
 Get started with PyTorch Fully Sharded Data Parallel (FSDP2) and Ray Train
 ==========================================================================
 
-**Time to complete:** 30 min
-
 This template shows how to get memory and performance improvements of
 integrating PyTorch’s Fully Sharded Data Parallel with Ray Train.
 
@@ -25,42 +23,32 @@ covers the following:
 - GPU memory profiling with PyTorch Profiler
 - Loading a distributed model for inference
 
-**Note:** This notebook uses FSDP2’s ``fully_sharded`` API. If you’re
-using FSDP1’s ``FullyShardedDataParallel``, consider migrating to FSDP2
-for improved performance and features such as lower memory usage and
-``DTensor`` integration.
-
-Example overview
-----------------
-
-For demonstration purposes, this tutorial integrates Ray Train with
-FSDP2 using a **Vision Transformer (ViT)** trained on the FashionMNIST
-dataset. ViT was chosen because it has clear, repeatable block
-structures (transformer blocks) that are ideal for demonstrating FSDP2’s
-sharding capabilities.
-
-While this example is relatively simple, FSDP’s complexity can lead to
-common challenges during training, such as out-of-memory (OOM) errors.
-This guide addresses common issues by providing practical tips for
-improving performance and reducing memory utilization based on your
-specific use case.
-
-1. Package and model setup
---------------------------
-
-Install the required dependencies for this tutorial:
-
 """
 
-# %%bash
-# %%bash
-# pip install torch
-# pip install torchvision
-# pip install matplotlib
+######################################################################
+# Example overview
+# ----------------
+#
+# For demonstration purposes, this tutorial integrates Ray Train with
+# FSDP2 using a **Vision Transformer (ViT)** trained on the FashionMNIST
+# dataset. ViT was chosen because it has clear, repeatable block
+# structures (transformer blocks) that are ideal for demonstrating FSDP2’s
+# sharding capabilities.
+#
+# While this example is relatively simple, FSDP’s complexity can lead to
+# common challenges during training, such as out-of-memory (OOM) errors.
+# This guide addresses common issues by providing practical tips for
+# improving performance and reducing memory utilization based on your
+# specific use case.
+#
+# 1. Package and model setup
+# --------------------------
+#
+# Install the required dependencies for this tutorial:
 
-# Enable Ray Train V2 for the latest train APIs
-import os
-os.environ["RAY_TRAIN_V2_ENABLED"] = "1"
+# %%bash
+# %%bash
+# pip install torch torchvision
 
 # Profiling and utilities
 import torch.profiler
@@ -166,7 +154,7 @@ def train_func(config):
     # Prepare training data
     transform = Compose([
         ToTensor(), 
-        Normalize((0.5,), (0.5,))
+        Normalize((0.5,), (0.5,))  # TODO: update these to the correct values for the FashionMNIST dataset
     ])
     data_dir = os.path.join(tempfile.gettempdir(), "data")
     train_data = FashionMNIST(
@@ -294,16 +282,16 @@ def train_func(config):
 # **Don’t use CPU offloading in the following cases:** - When CPU memory
 # is limited (can cause CPU crashes due to out-of-memory error) - When
 # training speed is more important than memory usage
+
+######################################################################
+# **Without CPU offloading** |image1|
 #
-# ::
+# **With CPU offloading** |image2|
 #
-#    ### Without CPU offloading
-#    ![](https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/gpu_memory_profile.png)
-#
-#
-#    ### With CPU offloading
-#    ![](https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/cpu_offload_profile.png)
-#
+# .. |image1| image:: https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/gpu_memory_profile.png
+# .. |image2| image:: https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/cpu_offload_profile.png
+
+######################################################################
 # Note: The above images are generated using PyTorch’s Memory Profiler,
 # which this tutorial covers later.
 #
@@ -323,16 +311,16 @@ def train_func(config):
 # be all-gathered again. If unsharded model parameters are able to
 # completely fit on each worker and don’t pose a memory bottleneck,
 # there’s no need to enable ``reshard_after_forward``.
+
+######################################################################
+# **reshard_after_forward=False** |image1|
 #
-# ::
+# **reshard_after_forward=True** |image2|
 #
-#    ### <code>reshard_after_forward=False</code>
-#    ![](https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/gpu_memory_profile.png)
-#
-#
-#    ### <code>reshard_after_forward=True</code>
-#    ![](https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/reshard_after_forward_memory_profile.png)
-#
+# .. |image1| image:: https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/gpu_memory_profile.png
+# .. |image2| image:: https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/reshard_after_forward_memory_profile.png
+
+######################################################################
 # With ``reshard_after_forward=True``, the memory allocated to model
 # parameters drops after the forward step whereas it peaks when
 # ``reshard_after_forward=False``.
@@ -346,16 +334,16 @@ def train_func(config):
 # **Benefits of mixed precision with FSDP2** - Reduced memory usage for
 # activations and intermediate computations - Faster computation on modern
 # GPUs - Maintained numerical stability through selective precision
+
+######################################################################
+# **Without mixed precision** |image1|
 #
-# ::
+# **With mixed precision** |image2|
 #
-#    ### Without mixed precision
-#    ![](https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/gpu_memory_profile.png)
-#
-#
-#    ### With mixed precision
-#    ![](https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/mixed_precision_profile.png)
-#
+# .. |image1| image:: https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/gpu_memory_profile.png
+# .. |image2| image:: https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/mixed_precision_profile.png
+
+######################################################################
 # With mixed precision enabled, the peak memory allocated to activations
 # is halved.
 #
@@ -368,15 +356,14 @@ def train_func(config):
 # The below diagram compares the GPU memory profile of default sharding to
 # when all of the above strategies are enabled (CPU Offloading, Mixed
 # Precision, ``reshard_after_forward=True``).
+
+######################################################################
+# **Default Sharding** |image1|
 #
-# ::
+# **Combined CPU Offloading, Mixed Precision, and Resharding** |image2|
 #
-#    ### Default Sharding
-#    ![](https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/gpu_memory_profile.png)
-#
-#
-#    <h4>Combined CPU Offloading, Mixed Precision, and Resharding</h4>
-#    ![](https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/all_strategies_profile.png)
+# .. |image1| image:: https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/gpu_memory_profile.png
+# .. |image2| image:: https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/all_strategies_profile.png
 
 # FSDP2 sharding imports 
 from torch.distributed.fsdp import (
@@ -699,12 +686,13 @@ print("Training completed successfully!")
 # export path can be customized within the training function. For more
 # details on PyTorch’s memory profiler, see the `PyTorch
 # blog <https://pytorch.org/blog/understanding-gpu-memory-1/>`__.
+
+######################################################################
+# **Example memory profile** |image1|
 #
-# ::
-#
-#    ### Example memory profile
-#    ![](https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/gpu_memory_profile.png)
-#
+# .. |image1| image:: https://raw.githubusercontent.com/ray-project/ray/master/doc/source/train/examples/pytorch/pytorch-fsdp/images/gpu_memory_profile.png
+
+######################################################################
 # Post training directory view
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
