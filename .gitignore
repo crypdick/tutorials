@@ -126,6 +126,8 @@ cleanup.sh
 
 # VSCode
 *.vscode
+.cursor
+.devtools/
 
 # pyspelling
 dictionary.dic
